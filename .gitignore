@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Env
+venv/
+env/
+ENV/
+.env
+
+# MacOS
+.DS_Store
+
+# IDEs
+.vscode/
+.idea/
+
+# Project Specific Data (Privacy)
+local_kg_store.json
+*.pdf
+output.md
+expenses.db
+parse_result.json
+
+# Logs
+*.log
+*.txt
+
+# TensorLake (temp bundles & deployment artifacts)
+tmp*/
+deploy_bundle/
+
+# Scripts for debugging (optional to ignore, but safer)
+debug_connection.py
+list_namespaces.py
+verify_deployment.py
