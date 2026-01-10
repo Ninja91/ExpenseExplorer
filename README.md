@@ -1,36 +1,57 @@
 # TensorLake Expense Explorer
 
-## Overview
-A serverless Expense Explorer powered by TensorLake. 
-Ingest PDF credit card statements, extract transactions with Gemma 3, and query your spending naturally.
+A cloud-native expense management suite powered by TensorLake and Neon Postgres. 
 
-## Deployment
+## 🏗️ Architecture
+- **Inference**: Gemma-3 via TensorLake Applications.
+- **Parsing**: TensorLake Document AI.
+- **Persistence**: Serverless Neon Postgres (managed via SQLAlchemy).
+- **Format**: Multi-application architecture (`ingest_app` + `query_app`).
 
-1. **Deploy to TensorLake Cloud**:
-   ```bash
-   python workflow.py deploy
-   ```
-   *If successful, this registers your `expense_ingestion` graph.*
+## 🛠️ Setup
 
-## Usage
+1.  **Environment**: Create a virtual environment and install dependencies.
+    ```bash
+    python3.12 -m venv venv
+    source venv/bin/activate
+    pip install -r requirements.txt
+    ```
 
-1. **Ingest a Statement**:
-   Upload a PDF to be processed by the deployed ecosystem.
-   ```bash
-   python workflow.py ingest /path/to/statement.pdf
-   ```
+2.  **Configuration**: Create a `.env` file with the following:
+    ```env
+    TENSORLAKE_API_KEY=your_key
+    GEMINI_API_KEY=your_key
+    DATABASE_URL=postgresql://user:pass@host/dbname
+    ```
 
-2. **Query Expenses**:
-   Ask questions about your extracted transactions.
-   ```bash
-   python query_agent.py "How much did I spend on groceries?"
-   ```
+3.  **Secrets**: Push sensitive keys to TensorLake Cloud.
+    ```bash
+    tensorlake secrets set DATABASE_URL=...
+    tensorlake secrets set GEMINI_API_KEY=...
+    tensorlake secrets set TENSORLAKE_API_KEY=...
+    ```
 
-## Note on Credentials
-Ensure your proper `TENSORLAKE_API_KEY` is set in local `.env` or your cloud environment.
+4.  **Deployment**: Deploy both apps to the cloud.
+    ```bash
+    tensorlake deploy workflow.py
+    ```
 
-## Troubleshooting
-If you encounter `404` errors during deployment:
-1.  **Check Namespace**: The default code uses the `default` namespace. Ensure this exists in your TensorLake Console or set a different `namespace` in `TensorlakeClient`.
-2.  **API Key Permissions**: Ensure your API key has `Admin` or `Write` permissions to register graphs.
-3.  **Deployment Bundle**: Use `python workflow.py deploy` from the project root. The script handles bundling automatically.
+## 🚀 Usage
+
+### 1. Ingest Statements
+Process PDF credit card statements and save transactions to the cloud database.
+```bash
+python verify_flow.py
+```
+*Note: Ensure your PDF statements are in `Downloads/Credit_Card_Statements`.*
+
+### 2. Conversational Query
+Ask natural language questions about your spending.
+```bash
+python query_agent.py "What were my top travel expenses in December?"
+```
+
+## 🏗️ Technical Details
+- **Base64 Encoding**: Used for reliable binary PDF transfer via JSON APIs.
+- **Schema Management**: Managed via `schema.py` and SQLAlchemy models.
+- **Conversational Gemma**: Queries are handled by a multi-agentic Gemma-3 runner.

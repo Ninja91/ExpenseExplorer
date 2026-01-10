@@ -1,83 +1,108 @@
+from tensorlake.applications import application, function, Image, File
 import os
 import sys
-from typing import List
-from pydantic import BaseModel
-from tensorlake import Graph, RemoteGraph, tensorlake_function, Image
 from dotenv import load_dotenv
 
 # Ensure environment variables are loaded
 load_dotenv(override=True)
 
-from schema import Transaction
+from schema import Transaction, init_db, save_transactions, get_all_transactions, IngestionRequest
 from extractor_logic import extract_transactions_agent, TransactionList
 
 # Define the container image for the functions
-image = Image().name("expense-explorer-v1")
-image.run("pip install litellm google-generativeai pydantic openai-agents python-dotenv requests")
+image = Image(name="expense-explorer-v2")
+image.run("pip install litellm google-generativeai pydantic sqlalchemy psycopg2-binary openai-agents python-dotenv requests")
 
-@tensorlake_function(image=image)
-def parse_statement(file_path: str) -> str:
-    """Node that converts PDF to Markdown using TensorLake REST API."""
+@function(image=image, secrets=["TENSORLAKE_API_KEY", "GEMINI_API_KEY"])
+def parse_statement(file: File) -> str:
+    """Node that converts PDF (passed as File object) to Markdown."""
     from ingest import TensorLakeV2RESTClient
     
     client = TensorLakeV2RESTClient()
     
-    print(f"Parsing {file_path}...")
-    file_id = client.upload(file_path)
+    print(f"Parsing file with content type {file.content_type}...")
+    file_id = client.upload_content(file.content, content_type=file.content_type)
     markdown = client.parse_to_markdown(file_id)
     return markdown
 
-@tensorlake_function(image=image)
+@function(image=image, secrets=["TENSORLAKE_API_KEY", "GEMINI_API_KEY"])
 def extract_transactions(markdown: str) -> TransactionList:
     """Node that uses Gemma 3 agent to extract transactions."""
     print("Extracting transactions...")
     transaction_list = extract_transactions_agent(markdown)
     return transaction_list
 
-# --- Global Graph Definition for CLI ---
-graph = Graph(
-    name="expense_ingestion",
-    start_node=parse_statement,
-    description="Ingests PDF statements and extracts structured transactions into the TensorLake Knowledge Graph."
-)
-graph.add_edge(parse_statement, extract_transactions)
-# ----------------------------------------
+@function(image=image, secrets=["DATABASE_URL"])
+def persist_transactions(tx_list: TransactionList, filename: str) -> int:
+    """Node that saves extracted transactions to the cloud database."""
+    print(f"Persisting {len(tx_list.transactions)} transactions to database...")
+    init_db()
+    for tx in tx_list.transactions:
+        tx.source_file = filename
+    save_transactions(tx_list.transactions)
+    return len(tx_list.transactions)
+
+
+@application()
+@function(image=image, secrets=["TENSORLAKE_API_KEY", "GEMINI_API_KEY", "DATABASE_URL"])
+def expense_ingestion_app(request: IngestionRequest) -> int:
+    """
+    Ingests PDF statements, extracts transactions, and saves them to Neon Postgres.
+    """
+    import base64
+    from tensorlake.applications import File
+    
+    file_bytes = base64.b64decode(request.file_b64)
+    file_obj = File(content=file_bytes, content_type=request.content_type)
+    
+    markdown = parse_statement(file_obj)
+    tx_list = extract_transactions(markdown)
+    count = persist_transactions(tx_list, request.filename)
+    return count
+
+@application()
+@function(image=image, secrets=["DATABASE_URL", "GEMINI_API_KEY"])
+def expense_query_app(user_query: str) -> str:
+    """
+    Conversational agent that answers questions about expenses stored in the cloud database.
+    """
+    from agents import Agent, Runner, RunConfig
+    
+    print("Fetching data from cloud database...")
+    transactions = get_all_transactions()
+    
+    if not transactions:
+        return "No transactions found in the database. Please ingest some statements first."
+        
+    system_prompt = (
+        "You are an ExpenseExplorer assistant. You have access to a list of financial transactions "
+        "extracted from statements and stored in a Neon Postgres database.\n\n"
+        f"DATA CONTEXT:\n{len(transactions)} transactions found.\n"
+        "Columns: [date, description, amount, category, location, source_file].\n"
+        "Amount is positive for expenses, negative for refunds/payments.\n\n"
+        "TASK:\n"
+        "Answer the user's question based on the provided transaction data. "
+        "Be concise and accurate."
+    )
+    
+    agent = Agent(
+        name="ExpenseQueryExplorer",
+        model="litellm/gemini/gemma-3-27b-it",
+        instructions=system_prompt
+    )
+    
+    run_config = RunConfig(tracing_disabled=True)
+    print(f"Querying Gemma 3 with {len(transactions)} items...")
+    
+    prompt = f"Data: {transactions}\n\nUser Question: {user_query}"
+    result = Runner.run_sync(agent, prompt, run_config=run_config)
+    return result.final_output
+
+# Endpoints for deployment
+ingest_app = expense_ingestion_app
+query_app = expense_query_app
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage:")
-        print("  tensorlake deploy workflow.py  # To deploy")
-        print("  python workflow.py ingest <file_path>  # To ingest locally")
-        sys.exit(1)
-        
-    command = sys.argv[1]
-    
-    if command == "ingest":
-        if len(sys.argv) < 3:
-            print("Error: Missing file path.")
-            print("Usage: python workflow.py ingest <file_path>")
-            sys.exit(1)
-            
-        file_path = sys.argv[2]
-        if not os.path.exists(file_path):
-            print(f"Error: File not found: {file_path}")
-            sys.exit(1)
-            
-        print(f"Running ingestion for {file_path}...")
-        # For remote graphs, we would use client.invocations.create, but here we run the graph definition
-        # Locally this runs synchronously
-        invocation_id = graph.run(file_path=file_path)
-        print(f"Invocation ID: {invocation_id}")
-        
-        # Verify output locally
-        outputs = graph.output(invocation_id, "extract_transactions")
-        if outputs:
-            tx_list = outputs[0]
-            print(f"Successfully extracted {len(tx_list.transactions)} transactions.")
-    else:
-        # If user tries 'deploy' with python script, guide them to CLI
-        if command == "deploy":
-            print("To deploy, please use the TensorLake CLI:")
-            print("  tensorlake deploy workflow.py")
-        else:
-            print(f"Unknown command: {command}")
+    print("This file contains TensorLake application definitions.")
+    print("Use the CLI to deploy:")
+    print("  tensorlake deploy workflow.py")

@@ -21,16 +21,20 @@ class TensorLakeV2RESTClient:
 
     def upload(self, file_path: str) -> str:
         """Upload a local file and return the file_id."""
-        url = f"{self.base_url}/files"
-        print(f"  Uploading {file_path}...")
         with open(file_path, "rb") as f:
-            files = {"file": (os.path.basename(file_path), f)}
-            response = requests.post(url, headers=self._headers(), files=files, timeout=30)
-            print(f"  Upload response: {response.status_code}")
-            response.raise_for_status()
-            file_id = response.json().get("file_id")
-            print(f"  File ID: {file_id}")
-            return file_id
+            return self.upload_content(f.read(), os.path.basename(file_path))
+
+    def upload_content(self, content: bytes, filename: str = "file.pdf", content_type: str = "application/pdf") -> str:
+        """Upload raw content and return the file_id."""
+        url = f"{self.base_url}/files"
+        print(f"  Uploading content ({len(content)} bytes)...")
+        files = {"file": (filename, content, content_type)}
+        response = requests.post(url, headers=self._headers(), files=files, timeout=30)
+        print(f"  Upload response: {response.status_code}")
+        response.raise_for_status()
+        file_id = response.json().get("file_id")
+        print(f"  File ID: {file_id}")
+        return file_id
 
     def parse_to_markdown(self, file_id: str) -> str:
         """Parse a file to Markdown and wait for completion."""
