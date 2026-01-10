@@ -39,8 +39,9 @@ def persist_transactions(tx_list: TransactionList, filename: str) -> int:
     init_db()
     for tx in tx_list.transactions:
         tx.source_file = filename
-    save_transactions(tx_list.transactions)
-    return len(tx_list.transactions)
+    new_count = save_transactions(tx_list.transactions)
+    print(f"Added {new_count} new transactions, skipped {len(tx_list.transactions) - new_count} duplicates.")
+    return new_count
 
 
 @application()
@@ -78,7 +79,7 @@ def expense_query_app(user_query: str) -> str:
         "You are an ExpenseExplorer assistant. You have access to a list of financial transactions "
         "extracted from statements and stored in a Neon Postgres database.\n\n"
         f"DATA CONTEXT:\n{len(transactions)} transactions found.\n"
-        "Columns: [date, description, amount, category, location, source_file].\n"
+        "Columns: [date, description, amount, category, location, source_file, merchant, is_subscription, payment_method, tags, currency].\n"
         "Amount is positive for expenses, negative for refunds/payments.\n\n"
         "TASK:\n"
         "Answer the user's question based on the provided transaction data. "
@@ -87,12 +88,12 @@ def expense_query_app(user_query: str) -> str:
     
     agent = Agent(
         name="ExpenseQueryExplorer",
-        model="litellm/gemini/gemma-3-27b-it",
+        model="litellm/gemini/gemini-3-flash",
         instructions=system_prompt
     )
     
     run_config = RunConfig(tracing_disabled=True)
-    print(f"Querying Gemma 3 with {len(transactions)} items...")
+    print(f"Querying Gemini-3-Flash with {len(transactions)} items...")
     
     prompt = f"Data: {transactions}\n\nUser Question: {user_query}"
     result = Runner.run_sync(agent, prompt, run_config=run_config)

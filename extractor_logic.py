@@ -16,22 +16,33 @@ class TransactionList(BaseModel):
 
 def extract_transactions_agent(markdown_content: str) -> TransactionList:
     """
-    Extracts structured transactions from a financial statement in Markdown format.
-    Uses Gemma-3-27b-it with manual JSON parsing (since it doesn't support JSON mode yet).
+    Extracts high-fidelity structured transactions from a financial statement.
+    Uses Gemini-3-Flash for fast and accurate extraction.
     """
     extractor = Agent(
         name="TransactionExtractor",
-        model="litellm/gemini/gemma-3-27b-it",
+        model="litellm/gemini/gemini-3-flash",
         instructions=(
-            "You are an expert at extracting financial data from bank and credit card statements. "
-            "Given the markdown content of a statement, extract all individual transactions. "
-            "Ensure 'date' is in YYYY-MM-DD format. "
-            "Ensure 'amount' is a number (positive for expenses, negative for refunds/payments). "
-            "Categorize each transaction into one of: Dining, Groceries, Travel, Shopping, Utilities, Services, Miscellaneous.\n\n"
+            "You are an expert financial analyst. Extract all individual transactions from the provided markdown content.\n\n"
+            "FIELDS TO EXTRACT:\n"
+            "- date: YYYY-MM-DD format.\n"
+            "- description: The original line item description.\n"
+            "- amount: Float (positive for expenses, negative for refunds/payments).\n"
+            "- category: One of: Dining, Groceries, Travel, Shopping, Utilities, Services, Rent, Miscellaneous.\n"
+            "- location: City/State if available.\n"
+            "- merchant: A cleaned, human-readable merchant name (e.g., 'Uber' instead of 'UBER *TRIP HELP.UBER.COM').\n"
+            "- is_subscription: Boolean. True if the transaction appears to be a recurring subscription (Netflix, Spotify, Gym, etc.).\n"
+            "- payment_method: The card type or payment mode if visible (e.g., 'Visa', 'Amex').\n"
+            "- tags: Comma-separated tags for additional context (e.g., 'Dining Out', 'Electronics').\n"
+            "- currency: The 3-letter currency code (default: 'USD').\n\n"
             "OUTPUT FORMAT:\n"
-            "You must output ONLY a valid JSON block containing the list of transactions, like this:\n"
+            "You must output ONLY a valid JSON block:\n"
             "```json\n"
-            "{\"transactions\": [{\"date\": \"...\", \"description\": \"...\", \"amount\": 10.0, \"category\": \"...\", \"location\": \"...\"}]}\n"
+            "{\"transactions\": [{\n"
+            "  \"date\": \"...\", \"description\": \"...\", \"amount\": 0.0, \"category\": \"...\",\n"
+            "  \"location\": \"...\", \"merchant\": \"...\", \"is_subscription\": false,\n"
+            "  \"payment_method\": \"...\", \"tags\": \"...\", \"currency\": \"...\"\n"
+            "}]}\n"
             "```"
         )
     )

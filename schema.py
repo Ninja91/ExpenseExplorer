@@ -1,5 +1,5 @@
 import os
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Text
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, UniqueConstraint, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
@@ -27,7 +27,16 @@ class DBTransaction(Base):
     category = Column(String)
     location = Column(String)
     source_file = Column(String, nullable=False)
+    merchant = Column(String)
+    is_subscription = Column(Boolean, default=False)
+    payment_method = Column(String)
+    tags = Column(String)
+    currency = Column(String, default="USD")
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint('date', 'description', 'amount', 'source_file', name='_date_desc_amount_file_uc'),
+    )
 
 # Pydantic Models for API/Logic
 class Transaction(BaseModel):
@@ -37,6 +46,11 @@ class Transaction(BaseModel):
     category: str = Field(..., description="The category like Grocery, Rent, Travel, etc. If not known, use 'Miscellaneous'")
     location: str | None = Field(None, description="City and/or State if available")
     source_file: str | None = Field(None, description="The name of the statement file this came from")
+    merchant: str | None = Field(None, description="The cleaned merchant name")
+    is_subscription: bool = Field(False, description="Whether this appears to be a recurring subscription")
+    payment_method: str | None = Field(None, description="The payment method (e.g., Visa, Mastercard, Cash)")
+    tags: str | None = Field(None, description="Comma-separated tags for further classification")
+    currency: str = Field("USD", description="The currency of the transaction")
 
 class IngestionRequest(BaseModel):
     file_b64: str
@@ -47,25 +61,42 @@ class IngestionRequest(BaseModel):
 def init_db():
     Base.metadata.create_all(bind=engine)
 
-def save_transactions(transactions: List[Transaction]):
+def save_transactions(transactions: List[Transaction]) -> int:
     session = SessionLocal()
+    new_count = 0
     try:
         for tx in transactions:
-            db_tx = DBTransaction(
-                date=tx.date,
-                description=tx.description,
-                amount=tx.amount,
-                category=tx.category,
-                location=tx.location,
-                source_file=tx.source_file or "unknown"
-            )
-            session.add(db_tx)
+            # Check for existing transaction with same date, description, amount, and source_file
+            exists = session.query(DBTransaction).filter(
+                DBTransaction.date == tx.date,
+                DBTransaction.description == tx.description,
+                DBTransaction.amount == tx.amount,
+                DBTransaction.source_file == (tx.source_file or "unknown")
+            ).first()
+            
+            if not exists:
+                db_tx = DBTransaction(
+                    date=tx.date,
+                    description=tx.description,
+                    amount=tx.amount,
+                    category=tx.category,
+                    location=tx.location,
+                    source_file=tx.source_file or "unknown",
+                    merchant=tx.merchant,
+                    is_subscription=tx.is_subscription,
+                    payment_method=tx.payment_method,
+                    tags=tx.tags,
+                    currency=tx.currency
+                )
+                session.add(db_tx)
+                new_count += 1
         session.commit()
     except Exception as e:
         session.rollback()
         raise e
     finally:
         session.close()
+    return new_count
 
 def get_all_transactions() -> List[dict]:
     session = SessionLocal()
@@ -78,7 +109,12 @@ def get_all_transactions() -> List[dict]:
                 "amount": tx.amount,
                 "category": tx.category,
                 "location": tx.location,
-                "source_file": tx.source_file
+                "source_file": tx.source_file,
+                "merchant": tx.merchant,
+                "is_subscription": tx.is_subscription,
+                "payment_method": tx.payment_method,
+                "tags": tx.tags,
+                "currency": tx.currency
             }
             for tx in transactions
         ]
