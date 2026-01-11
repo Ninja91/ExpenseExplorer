@@ -2,9 +2,11 @@ import os
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, UniqueConstraint, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime
 from typing import List
 from pydantic import BaseModel, Field, ConfigDict
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from tensorlake.applications import File
 
 # Database setup
@@ -58,9 +60,21 @@ class IngestionRequest(BaseModel):
     filename: str
 
 
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    retry=retry_if_exception_type(SQLAlchemyError),
+    reraise=True
+)
 def init_db():
     Base.metadata.create_all(bind=engine)
 
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    retry=retry_if_exception_type(SQLAlchemyError),
+    reraise=True
+)
 def save_transactions(transactions: List[Transaction]) -> int:
     session = SessionLocal()
     new_count = 0
@@ -98,6 +112,12 @@ def save_transactions(transactions: List[Transaction]) -> int:
         session.close()
     return new_count
 
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    retry=retry_if_exception_type(SQLAlchemyError),
+    reraise=True
+)
 def get_all_transactions() -> List[dict]:
     session = SessionLocal()
     try:

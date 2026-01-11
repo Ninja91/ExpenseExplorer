@@ -11,7 +11,7 @@ from extractor_logic import extract_transactions_agent, TransactionList
 
 # Define the container image for the functions
 image = Image(name="expense-explorer-v2")
-image.run("pip install litellm google-generativeai pydantic sqlalchemy psycopg2-binary openai-agents python-dotenv requests")
+image.run("pip install litellm google-generativeai pydantic sqlalchemy psycopg2-binary openai-agents python-dotenv requests tenacity")
 
 @function(image=image, secrets=["TENSORLAKE_API_KEY", "GEMINI_API_KEY"])
 def parse_statement(file: File) -> str:
