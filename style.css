@@ -138,6 +138,73 @@ body {
     color: var(--accent);
 }
 
+/* Message Width Overrides */
+.message.agent.wide-message {
+    max-width: 95%;
+}
+
+/* MD Styling - Apple Aesthetic Tables */
+.message table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin: 16px 0;
+    font-size: 14px;
+    background: #FFFFFF;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+}
+
+.message th {
+    background: #F9F9FB;
+    color: var(--text-secondary);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    padding: 12px 14px;
+    text-align: left;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.message td {
+    padding: 12px 14px;
+    color: var(--text-primary);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.03);
+}
+
+.message tr:last-child td {
+    border-bottom: none;
+}
+
+.message tr:hover td {
+    background: #F5F5F7;
+}
+
+/* Specific alignments for financial tables */
+.message td:nth-child(3),
+.message th:nth-child(3) {
+    text-align: right;
+    font-family: 'SF Mono', 'Menlo', monospace;
+    font-weight: 500;
+}
+
+.message ul,
+.message ol {
+    margin: 12px 0 12px 24px;
+    line-height: 1.6;
+}
+
+.message li {
+    margin-bottom: 4px;
+}
+
+.message strong {
+    font-weight: 600;
+}
+
 /* Chat Area */
 .chat-area {
     flex: 1;

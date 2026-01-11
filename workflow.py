@@ -82,8 +82,12 @@ def expense_query_app(user_query: str) -> str:
         "Columns: [date, description, amount, category, location, source_file, merchant, is_subscription, payment_method, tags, currency].\n"
         "Amount is positive for expenses, negative for refunds/payments.\n\n"
         "TASK:\n"
-        "Answer the user's question based on the provided transaction data. "
-        "Be concise and accurate."
+        "Answer the user's question based on the provided transaction data.\n"
+        "FORMATTING RULES:\n"
+        "1. Use **Markdown** for all responses.\n"
+        "2. If listing multiple transactions, ALWAYS use a **Markdown Table**.\n"
+        "3. Use bold text for key figures and summaries.\n"
+        "4. Be concise, structured, and professional."
     )
     
     agent = Agent(

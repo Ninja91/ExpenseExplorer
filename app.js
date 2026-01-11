@@ -12,6 +12,16 @@ const elements = {
     sendQuery: document.getElementById('send-query'),
 };
 
+// Initialize Marked options
+if (typeof marked !== 'undefined') {
+    marked.setOptions({
+        gfm: true,
+        breaks: true,
+        headerIds: false,
+        mangle: false
+    });
+}
+
 // --- Ingestion Logic ---
 
 elements.dropZone.addEventListener('click', () => elements.fileInput.click());
@@ -184,7 +194,17 @@ function addChatMessage(role, text) {
     const div = document.createElement('div');
     div.id = id;
     div.className = `message ${role}`;
-    div.innerHTML = text;
+
+    if (role === 'agent' && typeof marked !== 'undefined') {
+        // Add a newline to help marked recognize tables even if they start at the first char
+        div.innerHTML = marked.parse('\n' + text);
+        if (text.includes('|') && text.includes('-')) {
+            div.classList.add('wide-message');
+        }
+    } else {
+        div.innerHTML = text;
+    }
+
     elements.chatHistory.appendChild(div);
     elements.chatHistory.scrollTop = elements.chatHistory.scrollHeight;
     return id;
@@ -193,7 +213,14 @@ function addChatMessage(role, text) {
 function updateChatMessage(id, text) {
     const div = document.getElementById(id);
     if (div) {
-        div.innerHTML = text;
+        if (div.classList.contains('agent') && typeof marked !== 'undefined') {
+            div.innerHTML = marked.parse('\n' + text);
+            if (text.includes('|') && text.includes('-')) {
+                div.classList.add('wide-message');
+            }
+        } else {
+            div.innerHTML = text;
+        }
         elements.chatHistory.scrollTop = elements.chatHistory.scrollHeight;
     }
 }
