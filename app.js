@@ -335,9 +335,11 @@ function renderInsights(insights) {
     if (insights.subscriptions && insights.subscriptions.length > 0) {
         let html = '';
         for (const sub of insights.subscriptions.slice(0, 5)) {
+            const extra = [sub.provider, sub.account ? `****${sub.account}` : null].filter(Boolean).join(' • ');
             html += `<div class="subscription-item">
                 <div class="subscription-name">${sub.description || 'Unknown'}</div>
                 <div class="subscription-cost">$${sub.amount?.toFixed(2) || '0.00'}/month • ${sub.occurrences || 0} occurrences</div>
+                ${extra ? `<div class="subscription-extra">${extra}</div>` : ''}
             </div>`;
         }
         insightsElements.subscriptions.querySelector('.insight-body').innerHTML = html || 'No subscriptions detected.';

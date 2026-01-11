@@ -673,6 +673,16 @@ body {
     font-size: 12px;
 }
 
+.subscription-extra {
+    font-size: 11px;
+    color: var(--text-secondary);
+    background: rgba(0, 0, 0, 0.04);
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 4px;
+    margin-top: 2px;
+}
+
 .trend-indicator {
     display: flex;
     align-items: center;

@@ -34,6 +34,11 @@ class DBTransaction(Base):
     payment_method = Column(String)
     tags = Column(String)
     currency = Column(String, default="USD")
+    raw_description = Column(String)
+    transaction_type = Column(String) # Debit, Credit, Transfer, Payment
+    reference_number = Column(String)
+    account_last_4 = Column(String)
+    provider_name = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     __table_args__ = (
@@ -70,6 +75,11 @@ class Transaction(BaseModel):
     payment_method: str | None = Field(None, description="The payment method (e.g., Visa, Mastercard, Cash)")
     tags: str | None = Field(None, description="Comma-separated tags for further classification")
     currency: str = Field("USD", description="The currency of the transaction")
+    raw_description: str | None = Field(None, description="The unmodified description string")
+    transaction_type: str | None = Field(None, description="Debit, Credit, Transfer, Payment")
+    reference_number: str | None = Field(None, description="Transaction reference or ID")
+    account_last_4: str | None = Field(None, description="Last 4 digits of the account/card")
+    provider_name: str | None = Field(None, description="Name of the financial institution")
 
 class IngestionRequest(BaseModel):
     file_b64: str
@@ -94,7 +104,12 @@ def init_db():
         ("is_subscription", "BOOLEAN DEFAULT FALSE"),
         ("payment_method", "VARCHAR"),
         ("tags", "VARCHAR"),
-        ("currency", "VARCHAR DEFAULT 'USD'")
+        ("currency", "VARCHAR DEFAULT 'USD'"),
+        ("raw_description", "VARCHAR"),
+        ("transaction_type", "VARCHAR"),
+        ("reference_number", "VARCHAR"),
+        ("account_last_4", "VARCHAR"),
+        ("provider_name", "VARCHAR")
     ]
     
     try:
@@ -144,7 +159,12 @@ def save_transactions(transactions: List[Transaction]) -> int:
                     is_subscription=tx.is_subscription,
                     payment_method=tx.payment_method,
                     tags=tx.tags,
-                    currency=tx.currency
+                    currency=tx.currency,
+                    raw_description=tx.raw_description,
+                    transaction_type=tx.transaction_type,
+                    reference_number=tx.reference_number,
+                    account_last_4=tx.account_last_4,
+                    provider_name=tx.provider_name
                 )
                 session.add(db_tx)
                 new_count += 1
@@ -178,7 +198,12 @@ def get_all_transactions() -> List[dict]:
                 "is_subscription": tx.is_subscription,
                 "payment_method": tx.payment_method,
                 "tags": tx.tags,
-                "currency": tx.currency
+                "currency": tx.currency,
+                "raw_description": tx.raw_description,
+                "transaction_type": tx.transaction_type,
+                "reference_number": tx.reference_number,
+                "account_last_4": tx.account_last_4,
+                "provider_name": tx.provider_name
             }
             for tx in transactions
         ]

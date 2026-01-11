@@ -109,18 +109,18 @@ def detect_subscriptions() -> List[Dict[str, Any]]:
     - Regular interval (monthly)
     """
     with engine.connect() as conn:
-        # Get all transactions grouped by description and amount
+        # Get all transactions grouped by description, amount, and account/provider
         result = conn.execute(text("""
-            SELECT description, amount, COUNT(*) as occurrences
+            SELECT description, amount, provider_name, account_last_4, COUNT(*) as occurrences
             FROM transactions
-            GROUP BY description, amount
+            GROUP BY description, amount, provider_name, account_last_4
             HAVING COUNT(*) >= 2
             ORDER BY occurrences DESC
         """))
         
         subscriptions = []
         for row in result:
-            description, amount, occurrences = row
+            description, amount, provider_name, account_last_4, occurrences = row
             
             # Check if it matches known subscription keywords
             upper_desc = description.upper() if description else ""
@@ -134,6 +134,8 @@ def detect_subscriptions() -> List[Dict[str, Any]]:
                     "description": description,
                     "amount": float(amount),
                     "occurrences": occurrences,
+                    "provider": provider_name,
+                    "account": account_last_4,
                     "is_likely_subscription": is_likely_subscription,
                     "estimated_monthly_cost": float(amount) if occurrences >= 2 else 0
                 })
@@ -199,6 +201,10 @@ def analyze_trends() -> Dict[str, Any]:
 
         parsed_data = []
         for tx in transactions:
+            # Skip transfers and payments to avoid double-counting in spending trends
+            if tx.category in ["Credit Card Payment", "Internal Transfer"]:
+                continue
+                
             try:
                 # Handle various formats: YYYY-MM-DD, MM/DD/YYYY, etc.
                 d_str = tx.date
