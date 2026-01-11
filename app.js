@@ -288,6 +288,7 @@ const insightsElements = {
     content: document.getElementById('insights-content'),
     categorySummary: document.getElementById('category-summary'),
     subscriptions: document.getElementById('subscriptions'),
+    anomalies: document.getElementById('anomalies'),
     trends: document.getElementById('trends'),
     refreshBtn: document.getElementById('refresh-insights')
 };
@@ -343,6 +344,22 @@ function renderInsights(insights) {
             </div>`;
         }
         insightsElements.subscriptions.querySelector('.insight-body').innerHTML = html || 'No subscriptions detected.';
+    }
+
+    // Render anomalies
+    if (insights.anomalies && insights.anomalies.length > 0) {
+        let html = '';
+        for (const anomaly of insights.anomalies) {
+            const severityClass = `anomaly-${anomaly.severity || 'low'}`;
+            html += `<div class="subscription-item anomaly-item">
+                <div class="subscription-name ${severityClass}">${anomaly.description}</div>
+                <div class="subscription-cost">$${anomaly.amount?.toFixed(2)} • ${anomaly.date}</div>
+                <div class="subscription-extra">${anomaly.merchant}</div>
+            </div>`;
+        }
+        insightsElements.anomalies.querySelector('.insight-body').innerHTML = html;
+    } else {
+        insightsElements.anomalies.querySelector('.insight-body').innerHTML = 'No unusual activity detected.';
     }
 
     // Setup Chart

@@ -144,6 +144,74 @@ def detect_subscriptions() -> List[Dict[str, Any]]:
 
 
 # ============================================================
+# TOOL 3.5: Anomaly Detector (Statistics)
+# ============================================================
+
+def detect_anomalies() -> List[Dict[str, Any]]:
+    """
+    Identifies:
+    - Spending spikes (amount > 2x recent category average)
+    - New merchant charges (first time seen)
+    """
+    from schema import SessionLocal as SchemaSession, DBTransaction
+    from collections import defaultdict
+    import numpy as np
+
+    session = SchemaSession()
+    try:
+        transactions = session.query(DBTransaction).all()
+        if not transactions:
+            return []
+
+        # Sort by date
+        sorted_txs = sorted(transactions, key=lambda x: x.date)
+        
+        category_spending = defaultdict(list)
+        seen_merchants = set()
+        anomalies = []
+
+        # Process chronologically
+        for tx in sorted_txs:
+            # Skip non-expenses
+            if tx.amount <= 0 or tx.category in ["Credit Card Payment", "Internal Transfer"]:
+                continue
+
+            # 1. Spike Detection
+            recent_spending = category_spending[tx.category][-10:] # Last 10 in category
+            if recent_spending:
+                avg = sum(recent_spending) / len(recent_spending)
+                if tx.amount > (avg * 2.5) and tx.amount > 50:
+                    anomalies.append({
+                        "type": "spike",
+                        "severity": "high" if tx.amount > (avg * 5) else "medium",
+                        "description": f"Unusually high {tx.category} expense",
+                        "amount": tx.amount,
+                        "date": tx.date,
+                        "merchant": tx.merchant or tx.description
+                    })
+            
+            # 2. New Merchant Detection
+            m_key = (tx.merchant or tx.description).lower()
+            if m_key not in seen_merchants and len(seen_merchants) > 20: 
+                anomalies.append({
+                    "type": "new_merchant",
+                    "severity": "low",
+                    "description": f"First time spending at {tx.merchant or tx.description}",
+                    "amount": tx.amount,
+                    "date": tx.date,
+                    "merchant": tx.merchant or tx.description
+                })
+            
+            # Update state
+            category_spending[tx.category].append(tx.amount)
+            seen_merchants.add(m_key)
+
+        # Return latest anomalies (last 5)
+        return anomalies[-5:]
+    finally:
+        session.close()
+
+# ============================================================
 # TOOL 4: Category Inferer (LLM-Powered)
 # ============================================================
 
@@ -360,6 +428,7 @@ def get_cached_insights() -> Optional[Dict[str, Any]]:
             "category_summary": {},
             "subscriptions": [],
             "trends": {},
+            "anomalies": [],
             "merchants": {},
             "computed_at": None
         }
@@ -376,6 +445,8 @@ def get_cached_insights() -> Optional[Dict[str, Any]]:
                 result["trends"] = value
             elif insight.insight_type == "merchant_enrichment":
                 result["merchants"][insight.key] = value
+            elif insight.insight_type == "anomalies":
+                result["anomalies"] = value
         
         return result
     finally:
@@ -406,11 +477,16 @@ def run_full_insights_pipeline(force_refresh: bool = False) -> Dict[str, Any]:
     trends = analyze_trends()
     save_insight("trends", "all", trends)
     
+    print("Detecting anomalies...")
+    anomalies = detect_anomalies()
+    save_insight("anomalies", "all", anomalies)
+    
     print("Insights pipeline complete!")
     
     return {
         "category_summary": category_summary,
         "subscriptions": subscriptions,
         "trends": trends,
+        "anomalies": anomalies,
         "computed_at": datetime.utcnow().isoformat()
     }

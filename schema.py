@@ -1,5 +1,5 @@
 import os
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, UniqueConstraint, Boolean
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, UniqueConstraint, Boolean, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
@@ -39,11 +39,29 @@ class DBTransaction(Base):
     reference_number = Column(String)
     account_last_4 = Column(String)
     provider_name = Column(String)
+    is_essential = Column(Boolean)
+    tax_category = Column(String)
+    confidence = Column(Float)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     __table_args__ = (
         UniqueConstraint('date', 'description', 'amount', 'source_file', name='_date_desc_amount_file_uc'),
     )
+
+class DBStatement(Base):
+    __tablename__ = "statements"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    source_file = Column(String, unique=True, nullable=False)
+    provider_name = Column(String)
+    account_last_4 = Column(String)
+    period_start = Column(String)
+    period_end = Column(String)
+    opening_balance = Column(Float)
+    closing_balance = Column(Float)
+    total_credits = Column(Float)
+    total_debits = Column(Float)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 # Insights Model
 class DBInsight(Base):
@@ -80,6 +98,19 @@ class Transaction(BaseModel):
     reference_number: str | None = Field(None, description="Transaction reference or ID")
     account_last_4: str | None = Field(None, description="Last 4 digits of the account/card")
     provider_name: str | None = Field(None, description="Name of the financial institution")
+    is_essential: bool | None = Field(None, description="Whether this expenditure is an essential need")
+    tax_category: str | None = Field(None, description="Standard tax category")
+    confidence: float | None = Field(None, description="LLM extraction confidence")
+
+class StatementMetadata(BaseModel):
+    provider_name: str | None = None
+    account_last_4: str | None = None
+    period_start: str | None = None
+    period_end: str | None = None
+    opening_balance: float | None = None
+    closing_balance: float | None = None
+    total_credits: float | None = None
+    total_debits: float | None = None
 
 class IngestionRequest(BaseModel):
     file_b64: str
@@ -93,10 +124,12 @@ class IngestionRequest(BaseModel):
     retry=retry_if_exception_type(SQLAlchemyError),
     reraise=True
 )
-def init_db():
+def init_db() -> List[str]:
     from sqlalchemy import inspect
+    logs = []
     # Create all tables first
     Base.metadata.create_all(bind=engine)
+    logs.append("Base.metadata.create_all called.")
     
     # Self-healing: Add new columns if they don't exist
     new_columns = [
@@ -109,24 +142,38 @@ def init_db():
         ("transaction_type", "VARCHAR"),
         ("reference_number", "VARCHAR"),
         ("account_last_4", "VARCHAR"),
-        ("provider_name", "VARCHAR")
+        ("provider_name", "VARCHAR"),
+        ("is_essential", "BOOLEAN"),
+        ("tax_category", "VARCHAR"),
+        ("confidence", "FLOAT")
     ]
     
     try:
         inspector = inspect(engine)
-        existing_columns = [c['name'] for c in inspector.get_columns('transactions')]
+        tables = inspector.get_table_names()
+        logs.append(f"Migration: Found tables: {tables}")
         
-        with engine.connect() as conn:
-            for col_name, col_type in new_columns:
-                if col_name not in existing_columns:
-                    try:
-                        conn.execute(text(f"ALTER TABLE transactions ADD COLUMN {col_name} {col_type}"))
-                        conn.commit()
-                        print(f"Migration: Added column {col_name}")
-                    except Exception as e:
-                        print(f"Migration error for {col_name}: {e}")
+        if 'transactions' in tables:
+            existing_columns = [c['name'] for c in inspector.get_columns('transactions')]
+            logs.append(f"Migration: Found columns in 'transactions': {existing_columns}")
+            
+            with engine.begin() as conn:
+                for col_name, col_type in new_columns:
+                    if col_name not in existing_columns:
+                        try:
+                            logs.append(f"Migration: Adding column {col_name} to transactions...")
+                            # Use quotes for Postgres safety
+                            conn.execute(text(f'ALTER TABLE transactions ADD COLUMN "{col_name}" {col_type}'))
+                            logs.append(f"Migration: Success adding {col_name}")
+                        except Exception as e:
+                            logs.append(f"Migration error for {col_name}: {str(e)}")
+        else:
+            logs.append("Migration: 'transactions' table does not exist yet.")
+            
     except Exception as e:
-        print(f"Inspector error: {e}")
+        logs.append(f"Inspector error: {str(e)}")
+    
+    return logs
 
 @retry(
     stop=stop_after_attempt(3),
@@ -135,6 +182,7 @@ def init_db():
     reraise=True
 )
 def save_transactions(transactions: List[Transaction]) -> int:
+    init_db()
     session = SessionLocal()
     new_count = 0
     try:
@@ -164,7 +212,10 @@ def save_transactions(transactions: List[Transaction]) -> int:
                     transaction_type=tx.transaction_type,
                     reference_number=tx.reference_number,
                     account_last_4=tx.account_last_4,
-                    provider_name=tx.provider_name
+                    provider_name=tx.provider_name,
+                    is_essential=tx.is_essential,
+                    tax_category=tx.tax_category,
+                    confidence=tx.confidence
                 )
                 session.add(db_tx)
                 new_count += 1
@@ -203,9 +254,81 @@ def get_all_transactions() -> List[dict]:
                 "transaction_type": tx.transaction_type,
                 "reference_number": tx.reference_number,
                 "account_last_4": tx.account_last_4,
-                "provider_name": tx.provider_name
+                "provider_name": tx.provider_name,
+                "is_essential": tx.is_essential,
+                "tax_category": tx.tax_category,
+                "confidence": tx.confidence
             }
             for tx in transactions
+        ]
+    finally:
+        session.close()
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    retry=retry_if_exception_type(SQLAlchemyError),
+    reraise=True
+)
+def save_statement_metadata(source_file: str, meta: StatementMetadata):
+    session = SessionLocal()
+    try:
+        exists = session.query(DBStatement).filter(DBStatement.source_file == source_file).first()
+        if exists:
+            exists.provider_name = meta.provider_name
+            exists.account_last_4 = meta.account_last_4
+            exists.period_start = meta.period_start
+            exists.period_end = meta.period_end
+            exists.opening_balance = meta.opening_balance
+            exists.closing_balance = meta.closing_balance
+            exists.total_credits = meta.total_credits
+            exists.total_debits = meta.total_debits
+        else:
+            db_stmt = DBStatement(
+                source_file=source_file,
+                provider_name=meta.provider_name,
+                account_last_4=meta.account_last_4,
+                period_start=meta.period_start,
+                period_end=meta.period_end,
+                opening_balance=meta.opening_balance,
+                closing_balance=meta.closing_balance,
+                total_credits=meta.total_credits,
+                total_debits=meta.total_debits
+            )
+            session.add(db_stmt)
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        raise e
+    finally:
+        session.close()
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    retry=retry_if_exception_type(SQLAlchemyError),
+    reraise=True
+)
+def get_statement_metadata(source_file: str = None) -> List[dict]:
+    session = SessionLocal()
+    try:
+        query = session.query(DBStatement)
+        if source_file:
+            query = query.filter(DBStatement.source_file == source_file)
+        statements = query.all()
+        return [
+            {
+                "source_file": s.source_file,
+                "provider_name": s.provider_name,
+                "account_last_4": s.account_last_4,
+                "period_start": s.period_start,
+                "period_end": s.period_end,
+                "opening_balance": s.opening_balance,
+                "closing_balance": s.closing_balance,
+                "total_credits": s.total_credits,
+                "total_debits": s.total_debits
+            }
+            for s in statements
         ]
     finally:
         session.close()

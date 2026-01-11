@@ -38,11 +38,19 @@ def extract_transactions(markdown: str) -> TransactionList:
 
 @function(image=image, secrets=["DATABASE_URL"])
 def persist_transactions(tx_list: TransactionList, filename: str) -> int:
-    """Node that saves extracted transactions to the cloud database."""
-    print(f"Persisting {len(tx_list.transactions)} transactions to database...")
+    """Node that saves extracted transactions and statement metadata to the cloud database."""
+    from schema import init_db, save_transactions, save_statement_metadata
+    print(f"Persisting {len(tx_list.transactions)} transactions and metadata for {filename}...")
     init_db()
+    
+    # Save statement summary if available
+    if tx_list.summary:
+        print(f"Saving statement metadata: {tx_list.summary}")
+        save_statement_metadata(filename, tx_list.summary)
+        
     for tx in tx_list.transactions:
         tx.source_file = filename
+        
     new_count = save_transactions(tx_list.transactions)
     print(f"Added {new_count} new transactions, skipped {len(tx_list.transactions) - new_count} duplicates.")
     return new_count
@@ -86,8 +94,10 @@ def expense_query_app(user_query: str) -> str:
         "You are an ExpenseExplorer assistant. You have access to a list of financial transactions "
         "extracted from statements and stored in a Neon Postgres database.\n\n"
         f"DATA CONTEXT:\n{len(transactions)} transactions found.\n"
-        "Columns: [date, description, amount, category, location, source_file, merchant, is_subscription, payment_method, tags, currency, raw_description, transaction_type, reference_number, account_last_4, provider_name].\n"
+        "Columns: [date, description, amount, category, location, source_file, merchant, is_subscription, payment_method, tags, currency, raw_description, transaction_type, reference_number, account_last_4, provider_name, is_essential, tax_category, confidence].\n"
         "Amount is positive for expenses, negative for refunds/payments.\n\n"
+        "You also have access to statement-level metadata (balances, period dates) if asked about statement reconciliation.\n\n"
+        "Note: 'is_essential' flags transactions for needs vs wants. 'tax_category' helps with reporting.\n\n"
         "Note: 'Credit Card Payment' and 'Internal Transfer' are specific categories for financial moves that shouldn't typically count as new spending.\n\n"
         "TASK:\n"
         "Answer the user's question based on the provided transaction data.\n"
@@ -128,10 +138,22 @@ def insights_app(force_refresh: bool = False) -> dict:
     
     return insights
 
+@application()
+@function(image=image, secrets=["DATABASE_URL"])
+def force_migrate_app(force: bool = True) -> str:
+    """Aggressively forces the database schema to match the current models."""
+    from schema import init_db
+    try:
+        logs = init_db()
+        return "\n".join(logs)
+    except Exception as e:
+        return f"Migration failed: {str(e)}"
+
 # Endpoints for deployment
 ingest_app = expense_ingestion_app
 query_app = expense_query_app
 insights = insights_app
+migrate = force_migrate_app
 
 if __name__ == "__main__":
     print("This file contains TensorLake application definitions.")
