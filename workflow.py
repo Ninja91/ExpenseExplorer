@@ -110,9 +110,27 @@ def expense_query_app(user_query: str) -> str:
     result = Runner.run_sync(agent, prompt, run_config=run_config)
     return result.final_output
 
+@application()
+@function(image=image, secrets=["DATABASE_URL", "GEMINI_API_KEY"])
+def insights_app(force_refresh: bool = False) -> dict:
+    """
+    Runs the Insights Engine to analyze transactions and persist insights.
+    Returns category summaries, subscriptions, and trends.
+    """
+    from insights_logic import run_full_insights_pipeline, init_insights_table
+    
+    print("Initializing insights table...")
+    init_insights_table()
+    
+    print(f"Running insights pipeline (force_refresh={force_refresh})...")
+    insights = run_full_insights_pipeline(force_refresh=force_refresh)
+    
+    return insights
+
 # Endpoints for deployment
 ingest_app = expense_ingestion_app
 query_app = expense_query_app
+insights = insights_app
 
 if __name__ == "__main__":
     print("This file contains TensorLake application definitions.")

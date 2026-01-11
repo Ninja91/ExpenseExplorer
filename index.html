@@ -8,50 +8,131 @@
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
     <div class="app-container">
-        <header class="header">
-            <h1 class="title">Expense Explorer</h1>
-            <p class="subtitle">Cloud-Native Financial Intelligence</p>
-        </header>
+        <!-- Left Column: Main Application Area -->
+        <main class="left-panel">
+            <header class="header">
+                <h1 class="title">Expense Explorer</h1>
+                <p class="subtitle">Cloud-Native Financial Intelligence</p>
+            </header>
 
-        <section class="ingestion-area">
-            <div id="drop-zone" class="drop-zone">
-                <div class="drop-zone-content">
-                    <div class="icon-circle">
-                        <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                            <polyline points="17 8 12 3 7 8" />
-                            <line x1="12" y1="3" x2="12" y2="15" />
-                        </svg>
+            <section class="settings-container">
+                <button id="settings-toggle" class="settings-toggle">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" class="settings-icon">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path
+                            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+                        </path>
+                    </svg>
+                    <span>Settings</span>
+                </button>
+                <div id="settings-panel" class="settings-panel hidden">
+                    <div class="settings-group">
+                        <label for="api-key-input">TensorLake API Key</label>
+                        <input type="password" id="api-key-input" placeholder="Enter your TENSORLAKE_API_KEY">
                     </div>
-                    <p class="upload-text">Click or Drag PDF Statements</p>
+                    <div class="settings-group">
+                        <label for="gemini-key-input">Gemini API Key</label>
+                        <input type="password" id="gemini-key-input" placeholder="Enter your GEMINI_API_KEY">
+                    </div>
+                    <div class="settings-group">
+                        <label for="database-url-input">Database URL</label>
+                        <input type="password" id="database-url-input" placeholder="postgres://user:pass@host/db">
+                    </div>
+                    <div class="settings-actions">
+                        <button id="save-settings" class="save-button">Save All</button>
+                        <p class="settings-hint">Session-only: cleared when browser closes. Falls back to server .env if
+                            empty.</p>
+                    </div>
                 </div>
-                <input type="file" id="file-input" hidden accept="application/pdf" multiple>
-            </div>
-            <div id="status-container" class="status-container"></div>
-        </section>
+            </section>
 
-        <section class="chat-area">
-            <div id="chat-history" class="chat-history">
-                <div class="message info">Ask me about your spending, trends, or subscriptions.</div>
+            <section class="ingestion-area">
+                <div id="drop-zone" class="drop-zone">
+                    <div class="drop-zone-content">
+                        <div class="icon-circle">
+                            <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                <polyline points="17 8 12 3 7 8" />
+                                <line x1="12" y1="3" x2="12" y2="15" />
+                            </svg>
+                        </div>
+                        <p class="upload-text">Click or Drag PDF Statements</p>
+                    </div>
+                    <input type="file" id="file-input" hidden accept="application/pdf" multiple>
+                </div>
+                <div id="status-container" class="status-container"></div>
+            </section>
+
+            <section class="chat-area">
+                <div id="chat-history" class="chat-history">
+                    <div class="message info">Ask me about your spending, trends, or subscriptions.</div>
+                </div>
+                <div class="input-container">
+                    <div class="input-wrapper">
+                        <input type="text" id="query-input" placeholder="What were my top expenses?">
+                        <button id="send-query" class="send-button">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="22" y1="2" x2="11" y2="13" />
+                                <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Right Column: Insights Dashboard -->
+        <aside id="insights-panel" class="insights-panel">
+            <div class="insights-header">
+                <h3>Financial Dashboard</h3>
+                <button id="refresh-insights" class="refresh-btn" title="Refresh Insights">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M23 4v6h-6M1 20v-6h6" />
+                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                    </svg>
+                </button>
             </div>
-            <div class="input-container">
-                <div class="input-wrapper">
-                    <input type="text" id="query-input" placeholder="What were my top expenses?">
-                    <button id="send-query" class="send-button">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                            stroke-linecap="round" stroke-linejoin="round">
-                            <line x1="22" y1="2" x2="11" y2="13" />
-                            <polygon points="22 2 15 22 11 13 2 9 22 2" />
-                        </svg>
-                    </button>
+
+            <div id="insights-loading" class="insights-loading hidden">
+                <div class="loading-spinner"></div>
+                <span>Analyzing data...</span>
+            </div>
+
+            <div id="insights-content" class="insights-content">
+                <!-- Charts Section -->
+                <div class="insight-card chart-card">
+                    <div class="chart-header">
+                        <h4>Spending Trends</h4>
+                        <div class="time-toggles">
+                            <button class="toggle-btn active" data-period="monthly">Mo</button>
+                            <button class="toggle-btn" data-period="weekly">Wk</button>
+                            <button class="toggle-btn" data-period="daily">Day</button>
+                        </div>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="trendsChart"></canvas>
+                    </div>
+                </div>
+
+                <div id="category-summary" class="insight-card">
+                    <h4>Spending by Category</h4>
+                    <div class="insight-body">No data yet. Upload a statement to get started.</div>
+                </div>
+
+                <div id="subscriptions" class="insight-card">
+                    <h4>Detected Subscriptions</h4>
+                    <div class="insight-body">No subscriptions detected.</div>
                 </div>
             </div>
-        </section>
+        </aside>
     </div>
 
     <script src="app.js"></script>

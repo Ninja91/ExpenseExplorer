@@ -7,7 +7,7 @@ import urllib.error
 import sys
 
 # Configuration
-PORT = 8000
+PORT = 8001
 API_BASE = "https://api.tensorlake.ai/v1/namespaces/default"
 API_KEY = os.environ.get("TENSORLAKE_API_KEY")
 
@@ -55,7 +55,12 @@ class ProxyHandler(http.server.SimpleHTTPRequestHandler):
 
         # Prepare request
         req = urllib.request.Request(target_url, data=data, method=method)
-        req.add_header("Authorization", f"Bearer {API_KEY}")
+        
+        # Use key from header if provided, otherwise fallback to server's key
+        user_key = self.headers.get('X-TensorLake-API-Key')
+        final_key = user_key if user_key else API_KEY
+        
+        req.add_header("Authorization", f"Bearer {final_key}")
         req.add_header("Content-Type", "application/json")
         req.add_header("Accept", "application/json")
 

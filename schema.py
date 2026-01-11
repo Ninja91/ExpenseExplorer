@@ -40,6 +40,23 @@ class DBTransaction(Base):
         UniqueConstraint('date', 'description', 'amount', 'source_file', name='_date_desc_amount_file_uc'),
     )
 
+# Insights Model
+class DBInsight(Base):
+    __tablename__ = "insights"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    insight_type = Column(String, nullable=False)  # category_summary, merchant_enrichment, trend, subscription
+    key = Column(String, nullable=False)  # Category name, merchant name, or trend ID
+    value = Column(String, nullable=False)  # JSON-serialized insight data
+    transaction_ids = Column(String)  # Comma-separated IDs of related transactions
+    confidence = Column(Float, default=1.0)  # Confidence score (0-1)
+    computed_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=False)  # When this insight becomes stale
+
+    __table_args__ = (
+        UniqueConstraint('insight_type', 'key', name='_insight_type_key_uc'),
+    )
+
 # Pydantic Models for API/Logic
 class Transaction(BaseModel):
     date: str = Field(..., description="The date of the transaction (YYYY-MM-DD)")
@@ -67,7 +84,8 @@ class IngestionRequest(BaseModel):
     reraise=True
 )
 def init_db():
-    from sqlalchemy import text
+    from sqlalchemy import inspect
+    # Create all tables first
     Base.metadata.create_all(bind=engine)
     
     # Self-healing: Add new columns if they don't exist
@@ -79,14 +97,21 @@ def init_db():
         ("currency", "VARCHAR DEFAULT 'USD'")
     ]
     
-    with engine.connect() as conn:
-        for col_name, col_type in new_columns:
-            try:
-                # PostgreSQL specific check for column existence
-                conn.execute(text(f"ALTER TABLE transactions ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))
-                conn.commit()
-            except Exception as e:
-                print(f"Migration warning for {col_name}: {e}")
+    try:
+        inspector = inspect(engine)
+        existing_columns = [c['name'] for c in inspector.get_columns('transactions')]
+        
+        with engine.connect() as conn:
+            for col_name, col_type in new_columns:
+                if col_name not in existing_columns:
+                    try:
+                        conn.execute(text(f"ALTER TABLE transactions ADD COLUMN {col_name} {col_type}"))
+                        conn.commit()
+                        print(f"Migration: Added column {col_name}")
+                    except Exception as e:
+                        print(f"Migration error for {col_name}: {e}")
+    except Exception as e:
+        print(f"Inspector error: {e}")
 
 @retry(
     stop=stop_after_attempt(3),
