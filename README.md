@@ -7,6 +7,7 @@ Expense Explorer is a premium, cloud-native financial intelligence suite that tr
 - **Deep Financial Extraction**: Beyond dates and amounts—identifies merchants, subscriptions, payment methods, and enriched tags.
 - **Gemini-3-Flash**: High-performance extraction and conversational intelligence.
 - **Deduplication**: Intelligent iterative ingestion skips already-processed transactions.
+- **SQL Reliability**: Integrated `tenacity` retry logic for resilient database operations.
 - **Cloud-Native Proxy**: A secure server-side proxy handles authentication and bypasses browser security constraints.
 
 ## 🏗️ Architecture
@@ -33,20 +34,23 @@ tensorlake secrets set GEMINI_API_KEY=...
 tensorlake deploy workflow.py
 ```
 
-### 3. Launch the Dashboard
-Use the built-in launch script to start the proxy server and frontend:
+### 3. Ingest Statements
+#### Dashboard (Individual)
+Launch the dashboard and drag/drop your files.
+
+#### CLI (Batch)
+Use the batch tool for bulk processing:
+```bash
+python verify_flow.py
+```
+*Note: Ensure your PDF statements are in `~/Downloads/Credit_Card_Statements`.*
+
+### 4. Launch the Dashboard
+Use the built-in launch script:
 ```bash
 chmod +x launch_dashboard.sh
 ./launch_dashboard.sh
 ```
 Open [http://localhost:8000](http://localhost:8000) in your browser.
-
-## 📁 Repository Structure
-- `index.html` & `style.css`: The Apple-style minimalist dashboard.
-- `app.js`: Frontend logic for file handling and API polling.
-- `server.py`: Secure Python proxy for API injection and static serving.
-- `workflow.py`: TensorLake application definitions (`ingestion` & `query`).
-- `schema.py`: SQLAlchemy and Pydantic models for enriched transactions.
-- `extractor_logic.py`: Agentic extraction logic powered by Gemini-3-Flash.
 
 Built with ❤️ using TensorLake.

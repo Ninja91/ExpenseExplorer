@@ -21,7 +21,7 @@ def extract_transactions_agent(markdown_content: str) -> TransactionList:
     """
     extractor = Agent(
         name="TransactionExtractor",
-        model="litellm/gemini/gemini-3-flash",
+        model="litellm/gemini/gemini-3-flash-preview",
         instructions=(
             "You are an expert financial analyst. Extract all individual transactions from the provided markdown content.\n\n"
             "FIELDS TO EXTRACT:\n"

@@ -67,7 +67,26 @@ class IngestionRequest(BaseModel):
     reraise=True
 )
 def init_db():
+    from sqlalchemy import text
     Base.metadata.create_all(bind=engine)
+    
+    # Self-healing: Add new columns if they don't exist
+    new_columns = [
+        ("merchant", "VARCHAR"),
+        ("is_subscription", "BOOLEAN DEFAULT FALSE"),
+        ("payment_method", "VARCHAR"),
+        ("tags", "VARCHAR"),
+        ("currency", "VARCHAR DEFAULT 'USD'")
+    ]
+    
+    with engine.connect() as conn:
+        for col_name, col_type in new_columns:
+            try:
+                # PostgreSQL specific check for column existence
+                conn.execute(text(f"ALTER TABLE transactions ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))
+                conn.commit()
+            except Exception as e:
+                print(f"Migration warning for {col_name}: {e}")
 
 @retry(
     stop=stop_after_attempt(3),

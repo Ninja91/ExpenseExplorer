@@ -19,17 +19,17 @@ fastuuid==0.14.0
 filelock==3.20.3
 frozenlist==1.8.0
 fsspec==2026.1.0
-google-ai-generativelanguage==0.6.15
-google-api-core==2.29.0
+google-ai-generativelanguage
+google-api-core
 google-api-python-client==2.187.0
 google-auth==2.47.0
 google-auth-httplib2==0.3.0
 google-generativeai==0.8.6
-googleapis-common-protos==1.72.0
+googleapis-common-protos
 griffe==1.15.0
-grpcio==1.76.0
-grpcio-status==1.71.2
-grpcio-tools==1.76.0
+# grpcio
+# grpcio-status
+# grpcio-tools
 h11==0.16.0
 h2==4.3.0
 hf-xet==1.2.0
@@ -60,8 +60,8 @@ openai-agents==0.6.5
 packaging==25.0
 prometheus_client==0.23.1
 propcache==0.4.1
-proto-plus==1.27.0
-protobuf==6.33.3
+proto-plus
+protobuf
 psutil==7.2.1
 psycopg2-binary==2.9.11
 pyasn1==0.6.1
@@ -93,7 +93,7 @@ SQLAlchemy==2.0.45
 sse-starlette==3.1.2
 starlette==0.50.0
 structlog==25.5.0
-tensorlake==0.2.97
+tensorlake
 tiktoken==0.12.0
 tokenizers==0.22.2
 tomlkit==0.13.3

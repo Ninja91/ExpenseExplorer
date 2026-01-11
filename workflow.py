@@ -13,6 +13,7 @@ from extractor_logic import extract_transactions_agent, TransactionList
 image = Image(name="expense-explorer-v2")
 image.run("pip install litellm google-generativeai pydantic sqlalchemy psycopg2-binary openai-agents python-dotenv requests tenacity")
 
+
 @function(image=image, secrets=["TENSORLAKE_API_KEY", "GEMINI_API_KEY"])
 def parse_statement(file: File) -> str:
     """Node that converts PDF (passed as File object) to Markdown."""
@@ -69,6 +70,9 @@ def expense_query_app(user_query: str) -> str:
     """
     from agents import Agent, Runner, RunConfig
     
+    print("Initialising database and ensuring schema is up to date...")
+    init_db()
+    
     print("Fetching data from cloud database...")
     transactions = get_all_transactions()
     
@@ -92,7 +96,7 @@ def expense_query_app(user_query: str) -> str:
     
     agent = Agent(
         name="ExpenseQueryExplorer",
-        model="litellm/gemini/gemini-3-flash",
+        model="litellm/gemini/gemini-3-flash-preview",
         instructions=system_prompt
     )
     
