@@ -29,6 +29,9 @@ def parse_statement(file: File) -> str:
 @function(image=image, secrets=["TENSORLAKE_API_KEY", "GEMINI_API_KEY"])
 def extract_transactions(markdown: str) -> TransactionList:
     """Node that uses Gemma 3 agent to extract transactions."""
+    print("--- EXTRACTED OCR (MARKDOWN) ---")
+    print(markdown)
+    print("-------------------------------")
     print("Extracting transactions...")
     transaction_list = extract_transactions_agent(markdown)
     return transaction_list
