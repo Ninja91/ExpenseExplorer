@@ -11,7 +11,7 @@ from extractor_logic import extract_transactions_agent, TransactionList
 
 # Define the container image for the functions
 image = Image(name="expense-explorer-v2")
-image.run("pip install litellm google-generativeai pydantic sqlalchemy psycopg2-binary openai-agents python-dotenv requests tenacity")
+image.run("pip install litellm google-genai pydantic sqlalchemy psycopg2-binary openai-agents python-dotenv requests tenacity pandas numpy google-adk nest-asyncio \"protobuf>=6.0\"")
 
 
 @function(image=image, secrets=["TENSORLAKE_API_KEY", "GEMINI_API_KEY"])
@@ -77,49 +77,19 @@ def expense_ingestion_app(request: IngestionRequest) -> int:
 @function(image=image, secrets=["DATABASE_URL", "GEMINI_API_KEY"])
 def expense_query_app(user_query: str) -> str:
     """
-    Conversational agent that answers questions about expenses stored in the cloud database.
+    Conversational agent that answers questions about expenses using a Python tool.
     """
-    from agents import Agent, Runner, RunConfig
+    from query_agent import run_query
     
-    print("Initialising database and ensuring schema is up to date...")
-    init_db()
-    
-    print("Fetching data from cloud database...")
-    transactions = get_all_transactions()
-    
-    if not transactions:
-        return "No transactions found in the database. Please ingest some statements first."
-        
-    system_prompt = (
-        "You are an ExpenseExplorer assistant. You have access to a list of financial transactions "
-        "extracted from statements and stored in a Neon Postgres database.\n\n"
-        f"DATA CONTEXT:\n{len(transactions)} transactions found.\n"
-        "Columns: [date, description, amount, category, location, source_file, merchant, is_subscription, payment_method, tags, currency, raw_description, transaction_type, reference_number, account_last_4, provider_name, is_essential, tax_category, confidence].\n"
-        "Amount is positive for expenses, negative for refunds/payments.\n\n"
-        "You also have access to statement-level metadata (balances, period dates) if asked about statement reconciliation.\n\n"
-        "Note: 'is_essential' flags transactions for needs vs wants. 'tax_category' helps with reporting.\n\n"
-        "Note: 'Credit Card Payment' and 'Internal Transfer' are specific categories for financial moves that shouldn't typically count as new spending.\n\n"
-        "TASK:\n"
-        "Answer the user's question based on the provided transaction data.\n"
-        "FORMATTING RULES:\n"
-        "1. Use **Markdown** for all responses.\n"
-        "2. If listing multiple transactions, ALWAYS use a **Markdown Table**.\n"
-        "3. Use bold text for key figures and summaries.\n"
-        "4. Be concise, structured, and professional."
-    )
-    
-    agent = Agent(
-        name="ExpenseQueryExplorer",
-        model="litellm/gemini/gemini-3-flash-preview",
-        instructions=system_prompt
-    )
-    
-    run_config = RunConfig(tracing_disabled=True)
-    print(f"Querying Gemini-3-Flash with {len(transactions)} items...")
-    
-    prompt = f"Data: {transactions}\n\nUser Question: {user_query}"
-    result = Runner.run_sync(agent, prompt, run_config=run_config)
-    return result.final_output
+    try:
+        print(f"Querying Gemini 2.5 Flash Agent (ADK) with query: {user_query}")
+        result = run_query(user_query)
+        return result
+    except Exception as e:
+        import traceback
+        error_msg = f"Error in expense_query_app: {str(e)}\n{traceback.format_exc()}"
+        print(error_msg)
+        return error_msg
 
 @application()
 @function(image=image, secrets=["DATABASE_URL", "GEMINI_API_KEY"])

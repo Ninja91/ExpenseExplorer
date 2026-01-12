@@ -225,7 +225,7 @@ def infer_category(description: str) -> str:
     
     try:
         response = litellm.completion(
-            model="gemini/gemini-3-flash-preview",
+            model="gemini/gemini-2.5-flash",
             messages=[{
                 "role": "user",
                 "content": f"""Categorize this transaction into ONE of these categories:

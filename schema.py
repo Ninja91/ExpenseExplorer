@@ -1,4 +1,8 @@
 import os
+from dotenv import load_dotenv
+
+# Ensure environment variables are loaded for database setup
+load_dotenv(override=True)
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, UniqueConstraint, Boolean, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -92,7 +96,7 @@ class Transaction(BaseModel):
     is_subscription: bool = Field(False, description="Whether this appears to be a recurring subscription")
     payment_method: str | None = Field(None, description="The payment method (e.g., Visa, Mastercard, Cash)")
     tags: str | None = Field(None, description="Comma-separated tags for further classification")
-    currency: str = Field("USD", description="The currency of the transaction")
+    currency: str | None = Field("USD", description="The currency of the transaction")
     raw_description: str | None = Field(None, description="The unmodified description string")
     transaction_type: str | None = Field(None, description="Debit, Credit, Transfer, Payment")
     reference_number: str | None = Field(None, description="Transaction reference or ID")
