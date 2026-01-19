@@ -10,7 +10,7 @@ from schema import Transaction, init_db, save_transactions, get_all_transactions
 from extractor_logic import extract_transactions_agent, TransactionList
 
 # Define the container image for the functions
-image = Image(name="expense-explorer-v2")
+image = Image(name="expense-explorer-v3")
 image.run("pip install litellm google-genai pydantic sqlalchemy psycopg2-binary openai-agents python-dotenv requests tenacity pandas numpy google-adk nest-asyncio \"protobuf>=6.0\"")
 
 
